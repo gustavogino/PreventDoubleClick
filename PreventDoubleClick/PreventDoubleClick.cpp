@@ -1,3 +1,32 @@
+﻿/*************************************************************************************
+*                                                                                    *
+*   MIT License                                                                      *
+*                                                                                    *
+*   Copyright (c) 2023 Gustavo Gino Scotton                                          *
+*                                                                                    *
+*   Permission is hereby granted, free of charge, to any person obtaining a copy     *
+*   of this software and associated documentation files (the "Software"), to deal    *
+*   in the Software without restriction, including without limitation the rights     *
+*   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell        *
+*   copies of the Software, and to permit persons to whom the Software is            *
+*   furnished to do so, subject to the following conditions:                         *
+*                                                                                    *
+*   The above copyright notice and this permission notice shall be included in all   *
+*   copies or substantial portions of the Software.                                  *
+*                                                                                    *
+*   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR       *
+*   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,         *
+*   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE      *
+*   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER           *
+*   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,    *
+*   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE    *
+*   SOFTWARE.                                                                        *
+*                                                                                    *
+*   Author: Gustavo Gino Scotton                                                     *
+*   Email: gustavo.gino@outlook.com                                                  *
+*                                                                                    *
+*************************************************************************************/
+
 #include <iostream>
 #include <windows.h>
 #include <shellapi.h>
@@ -26,8 +55,11 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode >= 0)
     {
-        if (wParam == WM_LBUTTONDOWN || wParam == WM_RBUTTONDOWN || wParam == WM_MBUTTONDOWN ||
-            wParam == WM_XBUTTONDOWN || wParam == WM_XBUTTONUP)
+        if ((wParam == WM_LBUTTONDOWN && buttons.LBUTTON) || 
+            (wParam == WM_RBUTTONDOWN && buttons.RBUTTON) ||
+            (wParam == WM_MBUTTONDOWN && buttons.MBUTTON) ||
+            (wParam == WM_XBUTTONDOWN && buttons.BUTTON1) ||
+            (wParam == WM_XBUTTONUP && buttons.BUTTON2))
         {
             static LONGLONG lastClickTime = 0;
             LONGLONG currentTime = GetTickCount64();
@@ -50,7 +82,7 @@ void SetHook()
     mouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseProc, NULL, 0);
     if (!mouseHook)
     {
-        MessageBoxA(NULL, "Falha ao configurar o hook do mouse.", "Prevent Double Click", MB_OK | MB_ICONERROR);
+        MessageBoxA(NULL, "Failed to set up the mouse hook.", "Prevent Double Click", MB_OK | MB_ICONERROR);
     }
 }
 
@@ -102,7 +134,7 @@ void AddToStartup()
         {
             if (RegSetValueExW(hKey, L"PreventDoubleClick", 0, REG_SZ, (BYTE*)applicationName, pathLength) != ERROR_SUCCESS)
             {
-                MessageBoxW(NULL, L"Falha ao adicionar o programa ao registro de inicialização.", L"Prevent Double Click", MB_OK | MB_ICONERROR);
+                MessageBoxW(NULL, L"Failed to add the program to the startup registry.", L"Prevent Double Click", MB_OK | MB_ICONERROR);
             }
 
             RegCloseKey(hKey);
