@@ -5,7 +5,7 @@
 Prevent Double Click is a lightweight utility program that helps to prevent accidental double-clicking of the mouse. It automatically adds itself to the system startup, so you don't have to worry about launching it every time you start your computer.
 
 ### Installation
-* **[Download](https://github.com/gustavogino/PreventDoubleClick/releases/download/v1.0.1/Prevent.Double.Click.v1.0.1.zip "Download")** the latest release of Prevent Double Click from the GitHub repository. Run the file and voila!
+* **[Download](https://github.com/gustavogino/PreventDoubleClick/releases/download/v1.0.2/Prevent.Double.Click.v1.0.2.zip "Download")** the latest release of Prevent Double Click from the GitHub repository. Run the file and voila!
 
 ### Usage
 * Once run for the first time, Prevent Double Click will automatically run in the background.
