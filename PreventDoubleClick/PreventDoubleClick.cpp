@@ -125,14 +125,18 @@ void AddToStartup()
     }
 
     HKEY hKey;
-    char applicationName[MAX_PATH];
-    DWORD pathLength = GetModuleFileNameA(NULL, applicationName, MAX_PATH);
+    wchar_t applicationName[MAX_PATH];
+    DWORD pathLength = GetModuleFileNameW(NULL, applicationName, MAX_PATH);
 
     if (pathLength > 0)
     {
         if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS)
         {
-            if (RegSetValueExW(hKey, L"PreventDoubleClick", 0, REG_SZ, (BYTE*)applicationName, pathLength) != ERROR_SUCCESS)
+            std::wstring commandLine = L"\"";
+            commandLine += applicationName;
+            commandLine += L"\"";
+
+            if (RegSetValueExW(hKey, L"Prevent Double Click", 0, REG_SZ, (BYTE*)commandLine.c_str(), (DWORD)commandLine.size() * sizeof(wchar_t)) != ERROR_SUCCESS)
             {
                 MessageBoxW(NULL, L"Failed to add the program to the startup registry.", L"Prevent Double Click", MB_OK | MB_ICONERROR);
             }
@@ -370,6 +374,16 @@ void GetPreviewSettings()
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+
+    HANDLE hMutex = CreateMutexW(NULL, TRUE, L"PreventDoubleClick");
+    if (hMutex == NULL)     
+        return 1;    
+
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {        
+        CloseHandle(hMutex);
+        return 1;
+    }
+
     GetPreviewSettings();
 
     AddToStartup();
@@ -392,6 +406,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    CloseHandle(hMutex);
 
     return (int)msg.wParam;
 }
