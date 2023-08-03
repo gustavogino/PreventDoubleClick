@@ -31,6 +31,8 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <thread>
+#include <locale>
+#include <codecvt>
 
 #include "resource.h"
 
@@ -53,6 +55,8 @@ ButtonOptions buttons;
 
 LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
+    static LONGLONG lastClickTime = 0;
+
     if (nCode >= 0)
     {
         if ((wParam == WM_LBUTTONDOWN && buttons.LBUTTON) || 
@@ -60,8 +64,7 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             (wParam == WM_MBUTTONDOWN && buttons.MBUTTON) ||
             (wParam == WM_XBUTTONDOWN && buttons.BUTTON1) ||
             (wParam == WM_XBUTTONUP && buttons.BUTTON2))
-        {
-            static LONGLONG lastClickTime = 0;
+        {            
             LONGLONG currentTime = GetTickCount64();
 
             if (currentTime - lastClickTime < selectedDelay)
@@ -69,8 +72,7 @@ LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
                 return 1;
             }
 
-            lastClickTime = currentTime;
-            
+            lastClickTime = currentTime;            
         }
     }
 
@@ -178,6 +180,43 @@ void SaveValue(int value, LPCWSTR key = L"Delay")
     }
 }
 
+void Uninstall() 
+{
+    int result = MessageBoxW(NULL, L"Do you want to uninstall the program?", L"Prevent Double Click", MB_ICONQUESTION | MB_YESNO);
+
+    if (result == IDYES) {
+        
+        RemoveHook();
+
+        HKEY hKey;
+        if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
+            RegDeleteValueW(hKey, L"Prevent Double Click");
+            RegCloseKey(hKey);
+        }
+
+        if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\PreventDoubleClick", 0, KEY_ALL_ACCESS, &hKey) == ERROR_SUCCESS) {
+            RegDeleteTreeW(hKey, nullptr);
+            RegCloseKey(hKey);
+
+            RegDeleteKeyExW(HKEY_CURRENT_USER, L"Software\\PreventDoubleClick", KEY_WOW64_64KEY, 0);
+        }
+
+        char exePath[MAX_PATH] = { 0 };
+        GetModuleFileNameA(NULL, exePath, MAX_PATH);
+
+        if (strlen(exePath) > 0) 
+        {
+            std::string command = "cmd.exe /C ping 127.0.0.1 -n 4 > nul & del /f /q \"";
+            command += exePath;
+            command += "\" & PowerShell -Command \"Add-Type -AssemblyName PresentationFramework;[System.Windows.MessageBox]::Show('Uninstallation completed!')\"";
+
+            WinExec(command.c_str(), SW_HIDE);
+        }
+
+        ExitProcess(0);
+    }    
+}
+
 void ThreadMouse() 
 {
     SetHook();
@@ -218,54 +257,57 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
         switch (lParam)
         {
-        case WM_RBUTTONDOWN:
-        {
-            POINT pt;
-            GetCursorPos(&pt);
+            case WM_RBUTTONDOWN:
+            {
+                POINT pt;
+                GetCursorPos(&pt);
 
-            HMENU hMenu = CreatePopupMenu();
-            HMENU hSubMenu = CreatePopupMenu();
-            HMENU hSubMenu2 = CreatePopupMenu();
+                HMENU hMenu = CreatePopupMenu();
+                HMENU hSubMenu = CreatePopupMenu();
+                HMENU hSubMenu2 = CreatePopupMenu();
+                HMENU hSubMenu3 = CreatePopupMenu();
 
-            AppendMenu(hSubMenu2, MF_STRING, 9, L"LBUTTON (Mouse 1)");
-            AppendMenu(hSubMenu2, MF_STRING, 10, L"RBUTTON (Mouse 2)");
-            AppendMenu(hSubMenu2, MF_STRING, 11, L"MBUTTON (Scroll Click)");
-            AppendMenu(hSubMenu2, MF_STRING, 12, L"XBUTTON1 (Side down)");
-            AppendMenu(hSubMenu2, MF_STRING, 13, L"XBUTTON2 (Side up)");
+                AppendMenu(hSubMenu2, MF_STRING, 9, L"LBUTTON (Mouse 1)");
+                AppendMenu(hSubMenu2, MF_STRING, 10, L"RBUTTON (Mouse 2)");
+                AppendMenu(hSubMenu2, MF_STRING, 11, L"MBUTTON (Scroll Click)");
+                AppendMenu(hSubMenu2, MF_STRING, 12, L"XBUTTON1 (Side down)");
+                AppendMenu(hSubMenu2, MF_STRING, 13, L"XBUTTON2 (Side up)");
+                AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu2, L"Buttons");
 
-            AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu2, L"Buttons");
+                AppendMenu(hSubMenu, MF_STRING, 4, L"10 ms");
+                AppendMenu(hSubMenu, MF_STRING, 5, L"50 ms");
+                AppendMenu(hSubMenu, MF_STRING, 6, L"100 ms");
+                AppendMenu(hSubMenu, MF_STRING, 7, L"150 ms");
+                AppendMenu(hSubMenu, MF_STRING, 8, L"200 ms");
+                AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Settings");
 
-            AppendMenu(hSubMenu, MF_STRING, 4, L"10 ms");
-            AppendMenu(hSubMenu, MF_STRING, 5, L"50 ms");
-            AppendMenu(hSubMenu, MF_STRING, 6, L"100 ms");
-            AppendMenu(hSubMenu, MF_STRING, 7, L"150 ms");
-            AppendMenu(hSubMenu, MF_STRING, 8, L"200 ms");
+                AppendMenu(hSubMenu3, MF_STRING, 14, L"About");
+                AppendMenu(hSubMenu3, MF_STRING, 15, L"Uninstall");
+                AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu3, L"More");
 
-            AppendMenu(hMenu, MF_POPUP, (UINT_PTR)hSubMenu, L"Settings");
-
-            AppendMenu(hMenu, MF_STRING, 1, L"Exit");
+                AppendMenu(hMenu, MF_STRING, 1, L"Exit");
 
 
-            CheckMenuItem(hSubMenu, 4, MF_BYCOMMAND | (selectedDelay == 10 ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu, 5, MF_BYCOMMAND | (selectedDelay == 50 ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu, 6, MF_BYCOMMAND | (selectedDelay == 100 ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu, 7, MF_BYCOMMAND | (selectedDelay == 150 ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu, 8, MF_BYCOMMAND | (selectedDelay == 200 ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu, 4, MF_BYCOMMAND | (selectedDelay == 10 ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu, 5, MF_BYCOMMAND | (selectedDelay == 50 ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu, 6, MF_BYCOMMAND | (selectedDelay == 100 ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu, 7, MF_BYCOMMAND | (selectedDelay == 150 ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu, 8, MF_BYCOMMAND | (selectedDelay == 200 ? MF_CHECKED : MF_UNCHECKED));
 
-            CheckMenuItem(hSubMenu2, 9, MF_BYCOMMAND | (buttons.LBUTTON ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu2, 10, MF_BYCOMMAND | (buttons.RBUTTON ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu2, 11, MF_BYCOMMAND | (buttons.MBUTTON ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu2, 12, MF_BYCOMMAND | (buttons.BUTTON1 ? MF_CHECKED : MF_UNCHECKED));
-            CheckMenuItem(hSubMenu2, 13, MF_BYCOMMAND | (buttons.BUTTON2 ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu2, 9, MF_BYCOMMAND | (buttons.LBUTTON ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu2, 10, MF_BYCOMMAND | (buttons.RBUTTON ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu2, 11, MF_BYCOMMAND | (buttons.MBUTTON ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu2, 12, MF_BYCOMMAND | (buttons.BUTTON1 ? MF_CHECKED : MF_UNCHECKED));
+                CheckMenuItem(hSubMenu2, 13, MF_BYCOMMAND | (buttons.BUTTON2 ? MF_CHECKED : MF_UNCHECKED));
 
-            SetForegroundWindow(hwnd);
-            TrackPopupMenu(hMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
-            PostMessage(hwnd, WM_NULL, 0, 0);
+                SetForegroundWindow(hwnd);
+                TrackPopupMenu(hMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
+                PostMessage(hwnd, WM_NULL, 0, 0);
 
-            DestroyMenu(hMenu);
+                DestroyMenu(hMenu);
 
-            break;
-        }
+                break;
+            }
         }
         break;
     }
@@ -273,7 +315,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
         int menuId = LOWORD(wParam);
 
-        if (menuId == 1) // Finalizar
+        if (menuId == 1) // Exit
         {
             Shell_NotifyIcon(NIM_DELETE, &notifyIconData);
             PostQuitMessage(0);
@@ -339,6 +381,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             SaveValue(buttons.BUTTON2, L"XBUTTON2");
 			break;
 		}
+        else if (menuId == 14) // About
+        {
+            ShellExecuteA(0, 0, "https://github.com/gustavogino/PreventDoubleClick", 0, 0, SW_SHOW);
+            break;
+        }
+        else if (menuId == 15) // Uninstall
+        {
+            Uninstall();
+            break;
+        }
 
         break;
     }
@@ -362,7 +414,7 @@ void GetPreviewSettings()
 {
     selectedDelay = GetValue(L"Delay");
     if(selectedDelay < 10 || selectedDelay > 200)
-        selectedDelay == 100;
+        selectedDelay = 100;
 
     buttons.LBUTTON = GetValue(L"LBUTTON");
     buttons.RBUTTON = GetValue(L"RBUTTON");
